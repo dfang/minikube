@@ -109,6 +109,12 @@ var (
 )
 
 func init() {
+	viper.SetEnvPrefix(constants.MinikubeEnvPrefix)
+	// Replaces '-' in flags with '_' in env variables
+	// e.g. iso-url => $ENVPREFIX_ISO_URL
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
 	startCmd.Flags().Bool(keepContext, constants.DefaultKeepContext, "This will keep the existing kubectl context and will create a minikube context.")
 	startCmd.Flags().Bool(createMount, false, "This will start the mount daemon and automatically mount files into minikube")
 	startCmd.Flags().String(mountString, constants.DefaultMountDir+":"+constants.DefaultMountEndpoint, "The argument to pass the minikube mount command on start")
@@ -172,6 +178,18 @@ assumes you have already installed one of the VM drivers: virtualbox/parallels/v
 
 // runStart handles the executes the flow of "minikube start"
 func runStart(cmd *cobra.Command, args []string) {
+
+	// if --registry-mirror specified when run minikube start,
+	// take arg precedence over MINIKUBE_REGISTRY_MIRROR
+	// actually this is a hack, because viper 1.0.0 can assign env to variable if StringSliceVar
+	// and i can't update it to 1.4.0, it affects too much code
+	// other types (like String, Bool) of flag works, so imageRepository, imageMirrorCountry
+	// can be configured as MINIKUBE_IMAGE_REPOSITORY and IMAGE_MIRROR_COUNTRY
+	// this should be updated to documentation
+	if len(registryMirror) == 0 {
+		registryMirror = viper.GetStringSlice("registry_mirror")
+	}
+
 	console.OutStyle(console.Happy, "minikube %s on %s (%s)", version.GetVersion(), runtime.GOOS, runtime.GOARCH)
 	validateConfig()
 
